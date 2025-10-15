@@ -13,11 +13,11 @@ export const revalidate = 0;
 export async function GET() {
   try {
 
-    const cached = await redis.get("latestEarthquake");
-    if(cached){
-
+    const cached: string | null = await redis.get("latestEarthquake");
+    if (cached) {
       return NextResponse.json(JSON.parse(cached));
     }
+    
     const agent = new https.Agent({
       rejectUnauthorized: false,
     });
@@ -55,7 +55,9 @@ export async function GET() {
       await EarthquakeLog.create(latestEarthquake);
     }
 
-    await redis.set("latestEarthquake", JSON.stringify({ latestEarthquake }), "EX", 30);
+  await redis.set("latestEarthquake", JSON.stringify({ latestEarthquake }), {
+  ex: 30 
+});
 
     return NextResponse.json({ latestEarthquake });
   } catch (error) {
