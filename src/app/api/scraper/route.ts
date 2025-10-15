@@ -13,11 +13,18 @@ export const revalidate = 0;
 export async function GET() {
   try {
 
-    const cached: string | null = await redis.get("latestEarthquake");
+   const cached: string | null = await redis.get("latestEarthquake");
     if (cached) {
-      return NextResponse.json(JSON.parse(cached));
+      try {
+        const parsed = JSON.parse(cached);
+        return NextResponse.json(parsed);
+      } catch {
+        console.warn("Invalid cached data, ignoring...");
+        await redis.del("latestEarthquake");
+      }
     }
-    
+
+
     const agent = new https.Agent({
       rejectUnauthorized: false,
     });
@@ -60,10 +67,10 @@ export async function GET() {
 });
 
     return NextResponse.json({ latestEarthquake });
-  } catch (error) {
-    console.error("Scraping error:", error);
+  } catch (error: any) {
+    console.error("Scraping error:", error.message);
     return NextResponse.json(
-      { error: "Failed to scrape PHIVOLCS", details: error },
+      { error: "Failed to scrape PHIVOLCS", details: error.message },
       { status: 500 }
     );
   }
