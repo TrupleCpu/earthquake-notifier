@@ -14,14 +14,11 @@ export const usePushNotifications = () => {
     const initPush = async () => {
       if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
 
-      // 1️⃣ Register service worker (from next-pwa, sw.js is auto-generated)
       const registration = await navigator.serviceWorker.ready;
 
-      // 2️⃣ Request permission
       const permission = await Notification.requestPermission();
       if (permission !== "granted") return;
 
-      // 3️⃣ Subscribe user
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(
@@ -29,7 +26,6 @@ export const usePushNotifications = () => {
         ),
       });
 
-      // 4️⃣ Send subscription to backend
       await fetch("/api/subscribe", {
         method: "POST",
         body: JSON.stringify(subscription),
