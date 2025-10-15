@@ -67,10 +67,10 @@ export async function GET() {
 });
 
     return NextResponse.json({ latestEarthquake });
-  } catch (error: any) {
-    console.error("Scraping error:", error.message);
+  } catch (error) {
+    console.error("Scraping error:", error);
     return NextResponse.json(
-      { error: "Failed to scrape PHIVOLCS", details: error.message },
+      { error: "Failed to scrape PHIVOLCS", details: error },
       { status: 500 }
     );
   }
