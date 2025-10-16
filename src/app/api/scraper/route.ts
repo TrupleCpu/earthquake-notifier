@@ -71,13 +71,15 @@ if (typeof cached === "string" && cached.length > 0) {
     console.error("Scraping error:", error);
 
     const fallback = await redis.get("latestEarthquake");
-    if (fallback) {
-      try {
-        return NextResponse.json(JSON.parse(fallback));
-      } catch {
-        console.warn("Fallback cache also invalid");
-      }
-    }
+
+if (typeof fallback === "string" && fallback.length > 0) {
+  try {
+    return NextResponse.json(JSON.parse(fallback));
+  } catch {
+    console.warn("Fallback cache also invalid");
+  }
+}
+
 
     return NextResponse.json(
       { error: "Failed to scrape PHIVOLCS", details: error },
