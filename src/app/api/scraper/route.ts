@@ -7,6 +7,7 @@ import { connectToDatabase } from "@/lib/mongodb";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 type EarthquakeData = {
   dateTime: string;
@@ -19,30 +20,37 @@ type EarthquakeData = {
 
 export async function GET() {
   const cached = await redis.get("latestEarthquake");
-
-if (typeof cached === "string" && cached.length > 0) {
-  try {
-    return NextResponse.json(JSON.parse(cached));
-  } catch {
-    console.warn("Invalid cached data, clearing...");
-    await redis.del("latestEarthquake");
+  if (typeof cached === "string" && cached.length > 0) {
+    try {
+      return NextResponse.json(JSON.parse(cached));
+    } catch {
+      console.warn("Invalid cached data, clearing...");
+      await redis.del("latestEarthquake");
+    }
   }
-}
-
 
   try {
-    const { data: html } = await axios.get("https://earthquake.phivolcs.dost.gov.ph/", {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
-      },
-      timeout: 5000,
-    });
+    let html: string | null = null;
 
-    const $ = cheerio.load(html);
+    try {
+      const { data } = await axios.get("https://earthquake.phivolcs.dost.gov.ph/", {
+        headers: { "User-Agent": "Mozilla/5.0" },
+        timeout: 4000,
+      });
+      html = data;
+    } catch (err) {
+      console.warn("Direct fetch failed, retrying via proxy...");
+      // Fallback proxy if PHIVOLCS blocks Vercel
+      const { data } = await axios.get(
+        `https://api.codetabs.com/v1/proxy?quest=https://earthquake.phivolcs.dost.gov.ph/`,
+        { timeout: 4000 }
+      );
+      html = typeof data === "string" ? data : data.contents;
+    }
+
+    const $ = cheerio.load(html!);
     const rows = $("table.MsoNormalTable tr").toArray();
-    const validRow = rows.find(row => $(row).find("td").length >= 6);
-
+    const validRow = rows.find((row) => $(row).find("td").length >= 6);
     if (!validRow) throw new Error("No valid earthquake row found");
 
     const cols = $(validRow).find("td");
@@ -62,27 +70,23 @@ if (typeof cached === "string" && cached.length > 0) {
       { upsert: true }
     );
 
-    await redis.set("latestEarthquake", JSON.stringify({ latestEarthquake }), {
-      ex: 30,
-    });
+    await redis.set("latestEarthquake", JSON.stringify({ latestEarthquake }), { ex: 30 });
 
     return NextResponse.json({ latestEarthquake });
-  } catch (error) {
-    console.error("Scraping error:", error);
+  } catch (error: any) {
+    console.error("Scraping error:", error.message);
 
     const fallback = await redis.get("latestEarthquake");
-
-if (typeof fallback === "string" && fallback.length > 0) {
-  try {
-    return NextResponse.json(JSON.parse(fallback));
-  } catch {
-    console.warn("Fallback cache also invalid");
-  }
-}
-
+    if (typeof fallback === "string" && fallback.length > 0) {
+      try {
+        return NextResponse.json(JSON.parse(fallback));
+      } catch {
+        console.warn("Fallback cache invalid");
+      }
+    }
 
     return NextResponse.json(
-      { error: "Failed to scrape PHIVOLCS", details: error },
+      { error: "Failed to scrape PHIVOLCS", details: error.message },
       { status: 500 }
     );
   }
