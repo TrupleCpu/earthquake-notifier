@@ -19,14 +19,16 @@ type EarthquakeData = {
 
 export async function GET() {
   const cached = await redis.get("latestEarthquake");
-  if (cached) {
-    try {
-      return NextResponse.json(JSON.parse(cached));
-    } catch {
-      console.warn("Invalid cached data, clearing...");
-      await redis.del("latestEarthquake");
-    }
+
+if (typeof cached === "string" && cached.length > 0) {
+  try {
+    return NextResponse.json(JSON.parse(cached));
+  } catch {
+    console.warn("Invalid cached data, clearing...");
+    await redis.del("latestEarthquake");
   }
+}
+
 
   try {
     const { data: html } = await axios.get("https://earthquake.phivolcs.dost.gov.ph/", {
