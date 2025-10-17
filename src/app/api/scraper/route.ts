@@ -31,7 +31,7 @@ export async function GET() {
   } catch (error) {
     console.error("Fetching error:", error);
     return NextResponse.json(
-      { error: "Failed to fetch latest earthquake", details: error.message },
+      { error: "Failed to fetch latest earthquake", details: error },
       { status: 500 }
     );
   }
