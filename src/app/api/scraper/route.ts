@@ -14,11 +14,9 @@ export async function GET() {
       try {
         const parsed = JSON.parse(cached);
         if (parsed?.latestEarthquake) {
-          console.log("✅ Cache hit");
           return NextResponse.json(parsed);
         }
       } catch (err) {
-        console.warn("⚠️ Corrupted cache detected. Deleting key...", err);
         await redis.del("latestEarthquake");
       }
     }
@@ -43,10 +41,10 @@ export async function GET() {
 
     return NextResponse.json({ latestEarthquake });
 
-  } catch (error: any) {
-    console.error("❌ Error fetching earthquake data:", error);
+  } catch (error) {
+    console.error(" Error fetching earthquake data:", error);
     return NextResponse.json(
-      { error: "Failed to fetch latest earthquake", details: error.message },
+      { error: "Failed to fetch latest earthquake", details: error },
       { status: 500 }
     );
   }
