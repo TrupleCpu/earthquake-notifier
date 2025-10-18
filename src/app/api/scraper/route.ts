@@ -14,9 +14,11 @@ export async function GET() {
       try {
         const parsed = JSON.parse(cached);
         if (parsed?.latestEarthquake) {
+          console.log("✅ Redis cache hit");
           return NextResponse.json(parsed);
         }
       } catch (err) {
+        console.warn("⚠️ Corrupted Redis data, deleting...");
         await redis.del("latestEarthquake");
       }
     }
@@ -26,23 +28,26 @@ export async function GET() {
       cache: "no-store",
     });
 
-    if (!res.ok) throw new Error(`Worker returned ${res.status}`);
+    if (!res.ok) throw new Error(`Worker returned status ${res.status}`);
     const data = await res.json();
-
     const latestEarthquake = data.latestEarthquake;
+
     if (!latestEarthquake) throw new Error("Missing latestEarthquake in worker response");
 
-    await connectToDatabase();
-    const exists = await EarthquakeLog.findOne({ dateTime: latestEarthquake.dateTime });
-    if (!exists) await EarthquakeLog.create(latestEarthquake);
-
     const safeJSON = JSON.stringify({ latestEarthquake });
-    await redis.set("latestEarthquake", safeJSON, { ex: 30 });
+    await redis.set("latestEarthquake", safeJSON, { ex: 10 });
+
+    await connectToDatabase();
+    const exists = await EarthquakeLog.exists({ dateTime: latestEarthquake.dateTime });
+    if (!exists) {
+      await EarthquakeLog.create(latestEarthquake);
+      console.log("🪶 New earthquake logged:", latestEarthquake.dateTime);
+    }
 
     return NextResponse.json({ latestEarthquake });
 
   } catch (error) {
-    console.error(" Error fetching earthquake data:", error);
+    console.error("❌ Failed to fetch earthquake data:", error);
     return NextResponse.json(
       { error: "Failed to fetch latest earthquake", details: error },
       { status: 500 }
