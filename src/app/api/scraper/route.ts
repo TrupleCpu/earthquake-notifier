@@ -14,11 +14,9 @@ export async function GET() {
       try {
         const parsed = JSON.parse(cached);
         if (parsed?.latestEarthquake) {
-          console.log("✅ Redis cache hit");
           return NextResponse.json(parsed);
         }
       } catch (err) {
-        console.warn("⚠️ Corrupted Redis data, deleting...");
         await redis.del("latestEarthquake");
       }
     }
@@ -41,13 +39,11 @@ export async function GET() {
     const exists = await EarthquakeLog.exists({ dateTime: latestEarthquake.dateTime });
     if (!exists) {
       await EarthquakeLog.create(latestEarthquake);
-      console.log("🪶 New earthquake logged:", latestEarthquake.dateTime);
     }
 
     return NextResponse.json({ latestEarthquake });
 
   } catch (error) {
-    console.error("❌ Failed to fetch earthquake data:", error);
     return NextResponse.json(
       { error: "Failed to fetch latest earthquake", details: error },
       { status: 500 }
